@@ -1,16 +1,13 @@
-package com.javafsd.HelloWorld;
+package com.acciojob.student_api;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class HelloWorldApplication {
+public class StudentApiApplication {
 
 	public static void main(String[] args) {
-
-		SpringApplication.run(HelloWorldApplication.class, args);
-		Human human = new Human();
-		School school = new School();
+		SpringApplication.run(StudentApiApplication.class, args);
 	}
 
 }

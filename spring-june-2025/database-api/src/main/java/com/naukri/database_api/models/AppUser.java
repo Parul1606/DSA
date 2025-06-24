@@ -7,6 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @ToString
+@Table(name = "users")
 public class AppUser {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -25,11 +27,14 @@ public class AppUser {
     String email;
     @Column(nullable = false)
     String password;
+    String status;
     @Column(unique = true, nullable = false)
     Long phoneNumber;
     String userType;
     @ManyToOne
     Company company;
+    @ManyToMany
+    List<Skill> skillSet;
     @CreationTimestamp
     LocalDateTime createdAt;
     @UpdateTimestamp
