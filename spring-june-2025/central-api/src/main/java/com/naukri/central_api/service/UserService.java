@@ -7,8 +7,10 @@ import com.naukri.central_api.models.Skill;
 import com.naukri.central_api.service.SkillService;
 import com.naukri.central_api.utility.AuthUtility;
 import com.naukri.central_api.utility.MappingUtility;
+import io.jsonwebtoken.Jwts;
 import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,17 +22,16 @@ public class UserService {
     MappingUtility mappingUtility;
     DatabaseApiConnector dbApiConnector;
 
-    AuthUtility authUtility;
+    @Value("${secret.password}")
+    String secretPassword;
 
     @Autowired
     public UserService(SkillService skillService,
                        MappingUtility mappingUtility,
-                       DatabaseApiConnector dbApiConnector,
-                       AuthUtility authUtility){
+                       DatabaseApiConnector dbApiConnector){
         this.skillService = skillService;
         this.mappingUtility = mappingUtility;
         this.dbApiConnector = dbApiConnector;
-        this.authUtility = authUtility;
     }
 
     public AppUser registerJobSeeker(JobSeekerRegistrationDto jobSeekerDto){
@@ -64,13 +65,29 @@ public class UserService {
         return false;
     }
 
+    public String decryptJwtToken(String token){
+        String payload = Jwts.parser().setSigningKey(secretPassword)
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
+        return payload;
+    }
+
     public AppUser getUserFromToken(String token){
-        String email = authUtility.decryptJwtToken(token).split(":")[0];
+        String email = this.decryptJwtToken(token).split(":")[0];
         return dbApiConnector.callGetUserByEmailEndpoint(email);
     }
 
     public boolean isAdminUser(AppUser user){
-        return user.getUserType() == "Admin" ?  true : false;
+        return user.getUserType().equals("ADMIN") ?  true : false;
+    }
+
+    public boolean isUserRecruiter(AppUser user){
+        return user.getUserType().equals("RECRUITER") ? true : false;
+    }
+
+    public AppUser getUserByEmail(String email){
+        return dbApiConnector.callGetUserByEmailEndpoint(email);
     }
 
 

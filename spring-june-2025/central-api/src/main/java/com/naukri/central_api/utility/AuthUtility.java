@@ -1,5 +1,7 @@
 package com.naukri.central_api.utility;
 
+import com.naukri.central_api.exceptions.UnAuthorizedException;
+import com.naukri.central_api.models.AppUser;
 import com.naukri.central_api.service.UserService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -51,6 +53,19 @@ public class AuthUtility {
         // I want to validate email & password is it belonging to correct user or not
         // Auth Utility is going to call UserService to validate email and password belongs to correct user or not
         return userService.validateCredentials(email, password);
+    }
+
+    public String generateTokenByLoginDetails(String email, String password){
+        boolean resp  = userService.validateCredentials(email, password);
+        if(!resp){
+            throw new UnAuthorizedException("Entered wrong credentials");
+        }
+        AppUser user = userService.getUserByEmail(email);
+        return this.generateToken(email, password, user.getUserType());
+    }
+
+    public String extractTokenFromBearerToken(String bearerToken){
+        return bearerToken.substring(7);
     }
 
 

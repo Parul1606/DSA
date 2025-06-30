@@ -1,14 +1,17 @@
 package com.naukri.central_api.models;
 
+
 import lombok.*;
+
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @ToString
 public class Company {
 

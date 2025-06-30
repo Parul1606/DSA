@@ -1,14 +1,19 @@
 package com.naukri.central_api.service;
 
 import com.naukri.central_api.connectors.DatabaseApiConnector;
+import com.naukri.central_api.connectors.NotificationApiConnector;
 import com.naukri.central_api.dto.CompanyRegistrationDto;
+import com.naukri.central_api.dto.CreateJobDto;
 import com.naukri.central_api.dto.RecruiterDetailsDto;
 import com.naukri.central_api.exceptions.UnAuthorizedException;
-import com.naukri.central_api.models.AppUser;
-import com.naukri.central_api.models.Company;
+import com.naukri.central_api.models.*;
+import com.naukri.central_api.utility.AuthUtility;
 import com.naukri.central_api.utility.MappingUtility;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class CompanyService {
@@ -18,13 +23,33 @@ public class CompanyService {
 
     UserService userService;
 
+    NotificationApiConnector notificationApiConnector;
+
+    AuthUtility authUtility;
+
+    ApplicationFormService applicationFormService;
+
+    SkillService skillService;
+
+    JobService jobService;
+
     @Autowired
     public CompanyService(MappingUtility mappingUtility,
                           DatabaseApiConnector dbApiConnector,
-                          UserService userService){
+                          UserService userService,
+                          NotificationApiConnector notificationApiConnector,
+                          AuthUtility authUtility,
+                          ApplicationFormService applicationFormService,
+                          SkillService skillService,
+                          JobService jobService){
         this.mappingUtility = mappingUtility;
         this.dbApiConnector = dbApiConnector;
         this.userService = userService;
+        this.notificationApiConnector = notificationApiConnector;
+        this.authUtility = authUtility;
+        this.applicationFormService = applicationFormService;
+        this.skillService = skillService;
+        this.jobService = jobService;
     }
 
     /**
@@ -64,8 +89,56 @@ public class CompanyService {
         Company company = admin.getCompany();
         // We need create user object for the recruiter
         AppUser recruiter = mappingUtility.mapRecruiterDtoToAppUser(recruiterDetailsDto, company);
-        userService.saveUser(recruiter);
+        recruiter =userService.saveUser(recruiter);
+        token = authUtility.generateToken(recruiter.getEmail(), recruiter.getPassword(), "RECRUITER");
         // Mail logic
+        // We need to write some logic such that we will be able to notify recruiter that hey you are invited to this company.
+        // from here we need to trigger Notification api -> invite recruiter endpoint such that recruiter will recieve mail.
+        notificationApiConnector.callInviteRecruiterEndpoint(recruiter, token);
+        return recruiter;
+    }
+
+
+    public AppUser acceptInvitation(String token){
+        String [] payload = userService.decryptJwtToken(token).split(":");
+        String email = payload[0];
+        String password = payload[1];
+        String role = payload[2];
+        if(!userService.validateCredentials(email, password)){
+            throw new UnAuthorizedException("Invalid Credentials");
+        }
+        AppUser recruiter = userService.getUserFromToken(token);
+        if(!userService.isUserRecruiter(recruiter)){
+            throw new UnAuthorizedException("Invalid operation");
+        }
+        recruiter.setStatus("ACTIVE");
+        userService.saveUser(recruiter);
+        // Mail to company admin that hey this recruiter has accepted your invitation
+        String adminEmail = recruiter.getCompany().getEmail();
+        AppUser admin = userService.getUserByEmail(adminEmail);
+        List<AppUser> mailDetails = new ArrayList<>();
+        mailDetails.add(recruiter);
+        mailDetails.add(admin);
+        // calling notification api connector
+        notificationApiConnector.callAcceptInvitationEndpoint(mailDetails);
+        return recruiter;
+    }
+
+    public Job createJob(CreateJobDto createJobDto,
+                          String Authorization){
+        String token = authUtility.extractTokenFromBearerToken(Authorization);
+        AppUser recruiter = userService.getUserFromToken(token);
+        if(!userService.isUserRecruiter(recruiter)){
+            throw new UnAuthorizedException("Not Authorized to create jobs");
+        }
+        // Need to map createjob dto to job model
+        // So, to map details of createjob to job we need to think about -> What are the necessary details to required to create job model object.
+        // As job model is dependent on application form object. We need to think about how we can create application form.
+        ApplicationForm applicationForm = applicationFormService.createApplicationFormByQuestions(createJobDto.getQuestions());
+        List<Skill> skills = skillService.getAllSkills(createJobDto.getSkills());
+        Job job = mappingUtility.createJobFromJobDto(createJobDto, applicationForm,skills, recruiter);
+        // Save this job
+        return jobService.saveJob(job);
     }
 
 }
